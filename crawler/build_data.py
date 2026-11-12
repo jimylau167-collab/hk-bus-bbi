@@ -99,6 +99,28 @@ class RouteIndex:
             for c in cos:
                 self.by_co_route.setdefault((c, v["route"]), []).append(idx)
         self.fill_missing_fares()
+        self.find_twins()
+
+    def find_twins(self):
+        """同一條線、起點同總站都喺 400 米內嘅版本（數據重複），當係同一方向，共用轉乘優惠。"""
+        self.twins = {}
+        for lst in self.by_co_route.values():
+            for i in lst:
+                ri = self.routes[i]
+                for j in lst:
+                    if i == j:
+                        continue
+                    rj = self.routes[j]
+                    if haversine(self.stops[ri["s"][0]], self.stops[rj["s"][0]]) < 400 and \
+                            haversine(self.stops[ri["s"][-1]], self.stops[rj["s"][-1]]) < 400:
+                        self.twins.setdefault(i, set()).add(j)
+        print("重複版本組合:", sum(len(v) for v in self.twins.values()) // 2)
+
+    def expand(self, lst):
+        out = set(lst)
+        for i in lst:
+            out |= self.twins.get(i, set())
+        return sorted(out)
 
     def fill_missing_fares(self):
         """部分路線版本冇車費（數據來源重複）→ 向同線同方向、有車費嘅版本按車站位置借。"""
@@ -476,6 +498,8 @@ def main():
                 diag[dkey] = diag.get(dkey, 0) + 1
                 continue
             stats[src][1] += 1
+            if src != "manual":  # 車站通用規則本身已經逐個版本計
+                A, B = idx.expand(A), idx.expand(B)
             for a in A:
                 for b in B:
                     if a == b:
