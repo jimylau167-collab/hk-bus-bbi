@@ -98,6 +98,44 @@ class RouteIndex:
             })
             for c in cos:
                 self.by_co_route.setdefault((c, v["route"]), []).append(idx)
+        self.fill_missing_fares()
+
+    def fill_missing_fares(self):
+        """部分路線版本冇車費（數據來源重複）→ 向同線同方向、有車費嘅版本按車站位置借。"""
+        fixed = 0
+        for key, lst in self.by_co_route.items():
+            for i in lst:
+                r = self.routes[i]
+                if r["f"] and any(x is not None for x in r["f"]):
+                    continue
+                best, best_hits = None, 0
+                for j in lst:
+                    s = self.routes[j]
+                    if j == i or not s["f"] or s["r"] != r["r"]:
+                        continue
+                    # 同方向：總站相近
+                    if haversine(self.stops[r["s"][-1]], self.stops[s["s"][-1]]) > 1500:
+                        continue
+                    hits = sum(1 for a in r["s"][:-1]
+                               if min(haversine(self.stops[a], self.stops[b]) for b in s["s"][:-1]) < 150)
+                    if hits > best_hits:
+                        best, best_hits = j, hits
+                if best is None or best_hits < max(2, (len(r["s"]) - 1) * 0.5):
+                    continue
+                s = self.routes[best]
+                fares = []
+                for a in r["s"][:-1]:
+                    k = min(range(len(s["s"]) - 1), key=lambda k: haversine(self.stops[a], self.stops[s["s"][k]]))
+                    d = haversine(self.stops[a], self.stops[s["s"][k]])
+                    fares.append(s["f"][k] if d < 150 and k < len(s["f"]) else None)
+                # 中間未配對到嘅站：用前一個站嘅車費（分段收費只會越坐越平）
+                for k in range(1, len(fares)):
+                    if fares[k] is None and fares[k - 1] is not None:
+                        fares[k] = fares[k - 1]
+                r["f"] = fares
+                r["fare_from"] = best
+                fixed += 1
+        print("借用車費嘅路線版本:", fixed)
 
     def resolve(self, co, route, dest, bound=None):
         """搵 (公司, 路線, 目的地) 對應嘅路線變體。回傳 route idx list。"""

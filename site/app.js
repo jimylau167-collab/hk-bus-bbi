@@ -86,8 +86,10 @@ function cmpRoute(a, b) {
 }
 function variantsOf(num) {
   const order = { kmb: 0, "kmb+ctb": 1, ctb: 2, nlb: 3, lrtfeeder: 4, gmb: 5 };
+  const noFare = (i) => (R[i].fares && R[i].fares.some((x) => x != null) ? 0 : 1);
   return (byNum.get(num) || []).slice().sort((a, b) =>
-    (order[R[a].co] ?? 9) - (order[R[b].co] ?? 9) || R[a].st - R[b].st || R[a].d.localeCompare(R[b].d, "zh-Hant"));
+    (order[R[a].co] ?? 9) - (order[R[b].co] ?? 9) || R[a].st - R[b].st || noFare(a) - noFare(b) ||
+    R[a].d.localeCompare(R[b].d, "zh-Hant"));
 }
 
 // ---------------------------------------------------------------- 優惠規則
