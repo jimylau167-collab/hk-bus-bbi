@@ -18,7 +18,7 @@ const r1 = (v) => Math.round(v * 10) / 10;
 // ---------------------------------------------------------------- 載入數據
 async function loadData() {
   const [routes, stops, bbi] = await Promise.all(
-    ["data/routes.json", "data/stops.json", "data/bbi.json"].map((u) => fetch(u).then((r) => {
+    ["data/routes.json", "data/stops.json", "data/bbi.json"].map((u) => fetch(u, { cache: "no-cache" }).then((r) => {
       if (!r.ok) throw new Error(u + " " + r.status);
       return r.json();
     }))
@@ -32,7 +32,7 @@ async function loadData() {
     byNum.get(r.route).push(r.i);
   }
   // 香港巴士大典參考資料（可選，冇都照用）
-  fetch("data/wiki.json").then((r) => (r.ok ? r.json() : null)).then((w) => { WIKI = w; }).catch(() => {});
+  fetch("data/wiki.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((w) => { WIKI = w; }).catch(() => {});
 }
 let WIKI = null;
 
@@ -493,7 +493,7 @@ function renderAbout() {
     <div class="stat"><b>${R.length.toLocaleString()}</b><span>路線（連方向、特別班）</span></div>
     <div class="stat"><b>${S.length.toLocaleString()}</b><span>車站</span></div>
     <div class="stat"><b>${(s.pairs || 0).toLocaleString()}</b><span>轉乘組合</span></div>
-    <div class="stat"><b>${(s.ctb_schemes || 0) ? s.ctb_schemes : "2"}</b><span>城巴計劃已收錄</span></div>`;
+    <div class="stat"><b>${s.ctb_schemes || 0}</b><span>城巴計劃已收錄</span></div>`;
   $("#about-updated").textContent = META.updated || "";
   $("#about-notes").innerHTML = META.notes.map((n) => `<li>${esc(n)}</li>`).join("");
   $("#footer-updated").textContent = META.updated || "";
