@@ -121,10 +121,59 @@ class RouteIndex:
             circ = [i for i in cands if "循環線" in self.routes[i]["d"]]
             if circ and len(circ) == len(cands):
                 # 單向循環線：名唔夾都只得一個方向
-                best = circ
-            elif bound:
-                best = [i for i in cands if self.routes[i]["bound"].get(co) == bound]
+                return circ
+            best = self.opposite_of_origin(cands, nd) or self.nearest_terminus(cands, dest)
         return best
+
+    def opposite_of_origin(self, cands, nd):
+        """地名同某方向嘅『起點』一樣 → 應該係相反方向。"""
+        from_here = [i for i in cands if self.name_score(nd, norm(self.routes[i]["o"])) >= 2]
+        if not from_here:
+            return []
+        origin_names = {norm(self.routes[i]["o"]) for i in from_here}
+        other = [i for i in cands if i not in from_here
+                 and max(self.name_score(norm(self.routes[i]["o"]), o) for o in origin_names) < 2]
+        return other
+
+    def place_stops(self, name):
+        """搵名入面包含呢個地名嘅車站（用嚟估地名位置）。"""
+        if not hasattr(self, "_place_cache"):
+            self._place_cache = {}
+        if name in self._place_cache:
+            return self._place_cache[name]
+        n = norm(name)
+        parts = [n, strip_brackets(n)] + re.findall(r"\((.*?)\)", n)
+        toks = []
+        for p in parts:
+            p = re.sub(r"(總站|巴士站|站)$", "", p)
+            if len(p) >= 2 and p not in toks:
+                toks.append(p)
+        found = []
+        for t in toks:  # 由最完整嘅名開始搵，搵到就停
+            found = [i for i, s in enumerate(self.stops) if t in norm(s[0])]
+            if found:
+                break
+        self._place_cache[name] = found[:300]
+        return self._place_cache[name]
+
+    def nearest_terminus(self, cands, dest):
+        """邊個方向嘅總站最接近呢個地名，就係嗰個方向。"""
+        places = self.place_stops(dest)
+        if not places:
+            return []
+
+        def d_to_place(i):
+            last = self.stops[self.routes[i]["s"][-1]]
+            return min(haversine(last, self.stops[p]) for p in places)
+        dists = {i: d_to_place(i) for i in cands}
+        best_d = min(dists.values())
+        if best_d > 1500:
+            return []
+        chosen = [i for i, d in dists.items() if d <= best_d + 500]
+        others = [d for i, d in dists.items() if i not in chosen]
+        if others and min(others) < 2 * best_d + 300:
+            return []  # 兩個方向都差唔多近，唔估
+        return chosen
 
     @staticmethod
     def name_score(nd, rd):
@@ -139,6 +188,14 @@ class RouteIndex:
         if strip_brackets(nd)[:2] == strip_brackets(rd)[:2]:
             return 1
         return 0
+
+
+def haversine(a, b):
+    """a、b = [名, 英文名, lat, lng]，回傳米。"""
+    import math
+    dy = (a[2] - b[2]) * 111320
+    dx = (a[3] - b[3]) * 111320 * math.cos(math.radians(a[2]))
+    return math.hypot(dx, dy)
 
 
 def route_sort_key(r):
