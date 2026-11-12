@@ -1,0 +1,71 @@
+name: 每日更新轉乘數據
+
+on:
+  schedule:
+    - cron: "17 21 * * *"   # 香港時間每日 05:17
+  workflow_dispatch:         # 可以喺 Actions 頁面手動撳 Run
+  push:
+    branches: [main]
+    paths: ["site/**", "crawler/**"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      # 保留上次成功攞到嘅城巴/wiki 檔案，今次失敗都唔會冇數據
+      - name: 還原數據快取
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            raw/ctb
+            raw/wiki
+          key: raw-${{ github.run_id }}
+          restore-keys: raw-
+
+      - name: 下載數據
+        run: python crawler/fetch_sources.py
+        env:
+          BBI_USER_AGENT: "HK-BBI-Calculator/1.0 (+https://github.com/${{ github.repository }})"
+
+      - name: 整合數據
+        run: python crawler/build_data.py
+
+      - name: 儲存數據快取
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            raw/ctb
+            raw/wiki
+          key: raw-${{ github.run_id }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
