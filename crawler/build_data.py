@@ -359,6 +359,7 @@ def main():
     seen = set()
     stats = {"kmb": [0, 0], "ctb": [0, 0], "manual": [0, 0]}
     unresolved = {}
+    diag = {}
     manual, info_schemes, notes = manual_records(idx)
     for recs in (kmb_records(), ctb_records(), manual):
         for r in recs:
@@ -374,6 +375,9 @@ def main():
             if not A or not B:
                 key = r["a"][:2] if not A else r["b"][:2]
                 unresolved[key] = unresolved.get(key, 0) + 1
+                side = r["a"] if not A else r["b"]
+                dkey = (src,) + tuple(side)
+                diag[dkey] = diag.get(dkey, 0) + 1
                 continue
             stats[src][1] += 1
             for a in A:
@@ -401,6 +405,10 @@ def main():
     print("gmb pairs", len(gp))
     top = sorted(unresolved.items(), key=lambda x: -x[1])[:25]
     print("unresolved (top):", top)
+    print("DIAG 未對到（來源, 公司, 路線, 數據寫嘅目的地 → 路線數據有嘅目的地）:")
+    for (src, co, rt, dest), n in sorted(diag.items(), key=lambda x: -x[1])[:60]:
+        have = sorted({f'{idx.routes[i]["o"]}→{idx.routes[i]["d"]}' for i in idx.by_co_route.get((co, rt), [])})
+        print(f"DIAG {n:4d} {src} {co} {rt} 『{dest}』 have={have[:4]}")
 
     os.makedirs(OUT, exist_ok=True)
     hkt = timezone(timedelta(hours=8))

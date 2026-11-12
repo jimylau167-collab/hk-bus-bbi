@@ -177,11 +177,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", choices=["hkbus", "kmb", "ctb", "wiki"])
     ap.add_argument("--ctb-delay", type=float, default=4.0)
+    ap.add_argument("--skip", default=os.environ.get("BBI_SKIP", ""),
+                    help="逗號分隔，跳過嘅來源（用返快取），例如 ctb,wiki")
     a = ap.parse_args()
+    skip = {s.strip() for s in a.skip.split(",") if s.strip()}
     jobs = {"hkbus": fetch_hkbus, "kmb": fetch_kmb, "ctb": lambda: fetch_ctb(a.ctb_delay), "wiki": fetch_wiki}
     results = {}
     for name, fn in jobs.items():
-        if a.only and a.only != name:
+        if (a.only and a.only != name) or name in skip:
             continue
         try:
             results[name] = fn()

@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "17 21 * * *"   # 香港時間每日 05:17
   workflow_dispatch:         # 可以喺 Actions 頁面手動撳 Run
+    inputs:
+      skip:
+        description: "跳過嘅來源（用返上次快取），例如 ctb,wiki；留空 = 全部重新攞"
+        required: false
+        default: ""
   push:
     branches: [main]
     paths: ["site/**", "crawler/**"]
@@ -43,6 +48,7 @@ jobs:
         run: python crawler/fetch_sources.py
         env:
           BBI_USER_AGENT: "HK-BBI-Calculator/1.0 (+https://github.com/${{ github.repository }})"
+          BBI_SKIP: ${{ github.event.inputs.skip }}
 
       - name: 整合數據
         run: python crawler/build_data.py
