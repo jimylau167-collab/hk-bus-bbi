@@ -263,7 +263,8 @@ def kmb_records():
 
 # ---------------------------------------------------------------- CTB
 def ctb_records():
-    files = sorted(glob.glob(os.path.join(RAW, "ctb", "*.json")))
+    files = sorted(p for p in glob.glob(os.path.join(RAW, "ctb", "*.json"))
+                   if not os.path.basename(p).startswith("_"))
     rows = []
     if files:
         for p in files:
@@ -474,7 +475,8 @@ def main():
                   for r in idx.routes]
     dump(os.path.join(OUT, "routes.json"), {"updated": updated, "routes": routes_out})
     dump(os.path.join(OUT, "stops.json"), idx.stops)
-    ctb_files = len(glob.glob(os.path.join(RAW, "ctb", "*.json")))
+    ctb_files = len([p for p in glob.glob(os.path.join(RAW, "ctb", "*.json"))
+                     if not os.path.basename(p).startswith("_")])
     dump(os.path.join(OUT, "bbi.json"), {"updated": updated, "strings": strings,
                                          "bbi": {str(k): v for k, v in bbi.items()},
                                          "info": info_schemes, "notes": notes,
